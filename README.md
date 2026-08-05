@@ -105,7 +105,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 
 1. `document-start` 注入;`DOMContentLoaded` 时用显式栈遍历(剪枝排除区、跟随 open shadow root)找出所有含文本的元素,每个元素只读一次 `getComputedStyle`。
 2. 字体栈字符串 → 转换结果的 `Map` 缓存(FIFO 256 条),同栈同字号只解析一次。
-3. `MutationObserver` 监听 `childList` + `characterData` + `class/style` 变化,`requestAnimationFrame` 批处理 + 去重叠;观察 `document` 级别,`<body>` 被替换也不失效。
+3. `MutationObserver` 监听 `childList` + `characterData` + `class/style` 变化,**微任务**批处理 + 去重叠(渲染前完成替换,动态元素如 YouTube 字幕首帧即正确字体、无闪烁);观察 `document` 级别,`<body>` 被替换也不失效。
 4. 3s / 8s 各一次幂等延迟重扫,兜底晚渲染页面(SPA / Firefox + ShadyDOM 漏批次场景)。
 5. 表单控件(`input` / `textarea` / `select`)特殊处理——其文本(含 **placeholder**)不是 DOM 文本节点,控件自身会被评估,并注入 `[data-fen-processed]::placeholder { font-family: inherit !important; }` 让 placeholder 跟随控件字体。
 
@@ -131,6 +131,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.3 | 3s/8s 幂等延迟重扫,兜底晚渲染与 observer 漏批次(YouTube subscribe 按钮场景) |
 | 1.3.4 | YouTube 播放器/字幕栈(`YouTube Noto` 开头)支持,字幕字体同步替换 |
 | 1.3.5 | YouTube 栈中 Roboto Flex 改为插到 Roboto 前面(不抢 `YouTube Noto` 优先级) |
+| 1.3.6 | observer 批处理 rAF 改为微任务:动态元素(YouTube 字幕)首帧即用替换后字体,消除闪烁 |
 
 ## 开发 / 测试
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @namespace    rayy.font-enhance
-// @version      1.3.5
+// @version      1.3.6
 // @description  Replace Roboto / bare sans-serif with Roboto Flex and Segoe UI with Segoe UI Variable Text (Windows 11), while preserving explicitly chosen fonts such as Inter.
 // @match        http://*/*
 // @match        https://*/*
@@ -610,26 +610,33 @@
 
 
     /* =========================================================
-       7. MutationObserver: rAF-batched, deduplicated, covers
+       7. MutationObserver: microtask-batched, deduplicated, covers
           childList + characterData + class/style, survives
           <body> replacement (observes document), follows
           dynamically attached shadow roots
        ========================================================= */
 
     let pendingRoots = new Set();
-    let rafScheduled = false;
+    let flushScheduled = false;
 
     function scheduleProcess(root) {
         if (!root) return;
 
         pendingRoots.add(root);
 
-        if (rafScheduled) return;
+        if (flushScheduled) return;
 
-        rafScheduled = true;
+        flushScheduled = true;
 
-        requestAnimationFrame(() => {
-            rafScheduled = false;
+        // Microtask instead of requestAnimationFrame: the replacement
+        // runs after the current JS task (the one that inserted the
+        // node, e.g. a YouTube caption line) but BEFORE the browser
+        // renders — so dynamically created text is drawn with the
+        // final font on its very first frame. rAF could land one
+        // frame later, flashing the original font first (visible on
+        // Latin/digit captions).
+        queueMicrotask(() => {
+            flushScheduled = false;
 
             // Drop roots whose ancestor is also queued.
             for (const root of [...pendingRoots]) {
