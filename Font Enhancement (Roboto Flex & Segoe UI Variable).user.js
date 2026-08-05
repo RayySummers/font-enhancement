@@ -2,7 +2,7 @@
 // @name         Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @name:zh-CN   Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @namespace    rayy.font-enhance
-// @version      1.3.7
+// @version      1.3.8
 // @description  Replace Roboto / bare sans-serif with Roboto Flex, Inter with Inter Display (>=24px) and Segoe UI with Segoe UI Variable (Windows 11); appends Noto Sans SC / Source Han Sans SC as CJK fallback. Preserves explicitly chosen fonts such as Inter.
 // @description:zh-CN  将 Roboto / 裸 sans-serif 替换为 Roboto Flex、Inter(≥24px)替换为 Inter Display、Segoe UI 替换为 Segoe UI Variable(Windows 11),并为缺少中文字体的网站自动追加 Noto Sans SC / Source Han Sans SC 兜底;尊重站点显式字体选择(如 Inter)。
 // @match        http://*/*
@@ -319,22 +319,35 @@
 
     /* ----- CJK fallback -----
        Appends Noto Sans SC / Source Han Sans SC at the very END of
-       every stack that does not already contain a CJK-capable font
-       (user preference). Note: on stacks that end in a generic
-       keyword the browser's own generic fallback list — which
-       already includes a CJK face — is consulted first, so the
-       appended fonts may not be reached there. Stacks that already
-       cover CJK (YaHei, PingFang, Noto, Source Han, ...) are left
-       alone — that check also stops the attribute-observer
-       feedback loop.                                                       */
+       stacks that do not already contain a CJK-capable font and whose
+       head is NOT a serif family (user preference). Serif stacks —
+       `serif`, Times, Georgia, SimSun/Songti, ... — are left alone:
+       appending a sans CJK face there would mix serif Latin with
+       sans CJK glyphs, and the browser's own generic serif fallback
+       (SimSun/宋体) already handles Chinese correctly.
+       Stacks that already cover CJK (YaHei, PingFang, Noto, Source
+       Han, ...) are left alone — that check also stops the
+       attribute-observer feedback loop.                                  */
     const CJK_FONT_PATTERN =
         /(noto sans (sc|cn|cjk|tc|hk|jp|kr)|source han|yahei|pingfang|hiragino|songti|heiti|simsun|simhei|malgun|meiryo|ms (pgothic|gothic)|sans cjk|droid sans fallback|wenquanyi|wqy)/i;
+
+    // Head-of-stack serif detection. "^serif" must not match
+    // "sans-serif" (it starts with "sans-"), and "times" covers
+    // both "times" and "times new roman".
+    const SERIF_HEAD_PATTERN =
+        /^(serif|times|georgia|garamond|palatino|book antiqua|minion|baskerville|caslon|didot|bodoni|simsun|songti|宋体|nsimsun|新宋体|pmingliu|ming|batang)/i;
 
     function transformCJK(families) {
         if (!ENABLED.cjkFallback) return null;
 
         if (families.some(f => CJK_FONT_PATTERN.test(normalizeFamily(f)))) {
             return null; // site already covers CJK; also stops feedback loop
+        }
+
+        const head = normalizeFamily(families[0] || "");
+
+        if (SERIF_HEAD_PATTERN.test(head)) {
+            return null; // serif layout: keep it, browser handles CJK via generic fallback
         }
 
         families.push(...CJK_FALLBACK_FAMILIES);
