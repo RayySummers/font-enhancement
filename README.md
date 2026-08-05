@@ -1,5 +1,7 @@
 # Font Enhancement (Roboto Flex & Segoe UI Variable)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 一个 Violentmonkey / Tampermonkey 用户脚本:在任意网站上,把常用西文字体替换为显示效果更好的可变字体,并为缺失中文字体支持的网站自动追加思源黑体 fallback。
 
 - **@namespace** `rayy.font-enhance`
@@ -70,6 +72,8 @@
 ## 安装 / 更新
 
 1. Firefox / Chrome 安装 [Violentmonkey](https://violentmonkey.pro/) 扩展。
+2. 安装最新版:打开 [releases 页面](https://github.com/RayySummers/font-enhancement/releases) 下载 `Font Enhancement (Roboto Flex & Segoe UI Variable).user.js`,或直接拖入下方 raw 链接(需先允许 raw.githubusercontent.com):
+   - `https://raw.githubusercontent.com/RayySummers/font-enhancement/main/Font%20Enhancement%20(Roboto%20Flex%20%26%20Segoe%20UI%20Variable).user.js`
 2. 将 `Font Enhancement (Roboto Flex & Segoe UI Variable).user.js` 拖入浏览器窗口,确认安装。
 3. 更新时直接重新拖入同名文件,版本号更高会自动覆盖;建议先删除旧版避免重复替换。
 
@@ -132,6 +136,10 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.4 | YouTube 播放器/字幕栈(`YouTube Noto` 开头)支持,字幕字体同步替换 |
 | 1.3.5 | YouTube 栈中 Roboto Flex 改为插到 Roboto 前面(不抢 `YouTube Noto` 优先级) |
 | 1.3.6 | observer 批处理 rAF 改为微任务:动态元素(YouTube 字幕)首帧即用替换后字体,消除闪烁 |
+
+## License
+
+[MIT](LICENSE) © 2026 Rayy Summers
 
 ## 开发 / 测试
 
