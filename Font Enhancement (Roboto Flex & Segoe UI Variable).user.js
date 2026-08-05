@@ -2,7 +2,7 @@
 // @name         Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @name:zh-CN   Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @namespace    rayy.font-enhance
-// @version      1.3.9
+// @version      1.3.10
 // @description  Replace Roboto / bare sans-serif with Roboto Flex, Inter with Inter Display (>=24px) and Segoe UI with Segoe UI Variable (Windows 11); appends Noto Sans SC / Source Han Sans SC as CJK fallback. Preserves explicitly chosen fonts such as Inter.
 // @description:zh-CN  将 Roboto / 裸 sans-serif 替换为 Roboto Flex、Inter(≥24px)替换为 Inter Display、Segoe UI 替换为 Segoe UI Variable(Windows 11),并为缺少中文字体的网站自动追加 Noto Sans SC / Source Han Sans SC 兜底;尊重站点显式字体选择(如 Inter)。
 // @match        http://*/*
