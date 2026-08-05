@@ -162,6 +162,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.6 | observer 批处理 rAF 改为微任务:动态元素(YouTube 字幕)首帧即用替换后字体,消除闪烁 |
 | 1.3.7 | Greasy Fork 发布:补全 `@license` / `@homepageURL` / `@supportURL` / 双语 `@description` |
 | 1.3.8 | 修复衬线栈被追加黑体 CJK 的问题(`serif` / Times / Georgia / 宋体 等不再追加) |
+| 1.3.9 | 性能优化:SKIP 区节点免入观察队列(防 class 高频切换风暴)、attachShadow 合并到统一微任务批次、合并重复 closest 查询、Google Fonts 非阻塞加载(`media="print"` 技巧,未本地装字体的用户首屏不再被阻塞) |
 
 ## 支持 / 反馈
 

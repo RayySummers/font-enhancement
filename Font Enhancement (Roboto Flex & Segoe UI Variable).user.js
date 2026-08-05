@@ -2,7 +2,7 @@
 // @name         Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @name:zh-CN   Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @namespace    rayy.font-enhance
-// @version      1.3.8
+// @version      1.3.9
 // @description  Replace Roboto / bare sans-serif with Roboto Flex, Inter with Inter Display (>=24px) and Segoe UI with Segoe UI Variable (Windows 11); appends Noto Sans SC / Source Han Sans SC as CJK fallback. Preserves explicitly chosen fonts such as Inter.
 // @description:zh-CN  将 Roboto / 裸 sans-serif 替换为 Roboto Flex、Inter(≥24px)替换为 Inter Display、Segoe UI 替换为 Segoe UI Variable(Windows 11),并为缺少中文字体的网站自动追加 Noto Sans SC / Source Han Sans SC 兜底;尊重站点显式字体选择(如 Inter)。
 // @match        http://*/*
@@ -85,6 +85,15 @@
 
             const fontLink = document.createElement("link");
             fontLink.rel = "stylesheet";
+
+            // Load non-blocking: while a print stylesheet is loading
+            // it does not block rendering; switching to "all" right
+            // after apply makes the font available without delaying
+            // first paint (relevant for users without local copies).
+            fontLink.media = "print";
+            fontLink.onload = () => {
+                fontLink.media = "all";
+            };
             fontLink.href = font.css;
 
             (document.head || document.documentElement).appendChild(fontLink);
@@ -155,7 +164,10 @@
 
         // Manual exclusion
         "[data-no-roboto-flex]",
-        "[data-no-segoe-variable]"
+        "[data-no-segoe-variable]",
+
+        // Editable regions (closest() covers the subtree)
+        '[contenteditable="true"]'
     ].join(",");
 
 
@@ -508,14 +520,13 @@
     function evaluateElement(element) {
         if (!(element instanceof Element)) return;
 
+        // One closest() covers both the exclusion list and editable
+        // regions ([contenteditable="true"] is part of SKIP_SELECTOR).
         if (element.closest(SKIP_SELECTOR)) return;
 
-        if (
-            element.isContentEditable ||
-            element.closest('[contenteditable="true"]')
-        ) {
-            return;
-        }
+        // Computed property: also catches contenteditable="inherit"
+        // / "plaintext-only" forms that the attribute selector misses.
+        if (element.isContentEditable) return;
 
         const style = getComputedStyle(element);
         const stack = style.fontFamily;
@@ -640,6 +651,25 @@
     function scheduleProcess(root) {
         if (!root) return;
 
+        // Fast path: drop roots inside excluded areas before they
+        // enter the queue. Sites that churn class/style attributes
+        // on icons/buttons/code blocks would otherwise rescan those
+        // subtrees on every attribute mutation.
+        if (
+            root.nodeType === Node.ELEMENT_NODE &&
+            root.closest(SKIP_SELECTOR)
+        ) {
+            return;
+        }
+
+        if (
+            root.nodeType === Node.TEXT_NODE &&
+            root.parentElement &&
+            root.parentElement.closest(SKIP_SELECTOR)
+        ) {
+            return;
+        }
+
         pendingRoots.add(root);
 
         if (flushScheduled) return;
@@ -731,17 +761,18 @@
     }
 
 
-    // Catch shadow roots attached after the initial scan.
+    // Catch shadow roots attached after the initial scan. Uses
+    // scheduleProcess so many components attaching shadows in one
+    // task share a single microtask flush (a library rendering 100
+    // shadow components previously spawned 100 separate scans).
     const originalAttachShadow = Element.prototype.attachShadow;
 
     if (typeof originalAttachShadow === "function") {
         Element.prototype.attachShadow = function (init) {
             const shadowRoot = originalAttachShadow.call(this, init);
 
-            queueMicrotask(() => {
-                ensureShadowObserved(shadowRoot);
-                processRoot(shadowRoot);
-            });
+            ensureShadowObserved(shadowRoot);
+            scheduleProcess(shadowRoot);
 
             return shadowRoot;
         };
