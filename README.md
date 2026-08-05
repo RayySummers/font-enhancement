@@ -1,6 +1,8 @@
 # Font Enhancement (Roboto Flex & Segoe UI Variable)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Greasy Fork](https://img.shields.io/badge/Greasy_Fork-安装脚本-670000.svg)](https://greasyfork.org/en/scripts/589986-font-enhancement-roboto-flex-segoe-ui-variable)
+[![GitHub](https://img.shields.io/badge/GitHub-仓库-181717.svg)](https://github.com/RayySummers/font-enhancement)
 
 一个 Violentmonkey / Tampermonkey 用户脚本:在任意网站上,把常用西文字体替换为显示效果更好的可变字体,并为缺失中文字体支持的网站自动追加思源黑体 fallback。
 
@@ -8,6 +10,19 @@
 - **@match** `http://*/*` `https://*/*`
 - **@run-at** `document-start`
 - **@grant** `none`(无任何特权 API)
+
+---
+
+## 下载渠道
+
+| 渠道 | 说明 |
+|---|---|
+| **Greasy Fork(推荐,自动更新)** | [脚本主页](https://greasyfork.org/en/scripts/589986-font-enhancement-roboto-flex-segoe-ui-variable),页面上点「安装此脚本」即可 |
+| **GitHub 仓库** | [github.com/RayySummers/font-enhancement](https://github.com/RayySummers/font-enhancement) |
+| **GitHub Releases** | [releases 页面](https://github.com/RayySummers/font-enhancement/releases)(带 tag 的正式版本) |
+| **raw 直链** | [`Font Enhancement (Roboto Flex & Segoe UI Variable).user.js`](https://raw.githubusercontent.com/RayySummers/font-enhancement/main/Font%20Enhancement%20(Roboto%20Flex%20%26%20Segoe%20UI%20Variable).user.js) |
+
+> **两个渠道保持自动同步**:GitHub 为主仓库(代码 + tag + 发布),Greasy Fork 通过 **webhook** 监听 GitHub push,代码有变化自动发布新版本。因此**在 Greasy Fork 安装的用户无需手动跟版本**,更新走 Greasy Fork;想直接看代码、提 issue 或自己编译的走 GitHub。
 
 ---
 
@@ -57,13 +72,14 @@
 
 ### 4. CJK fallback(中文字体兜底)
 
-所有**不含中文字体**的 font stack 末尾追加:
+**不含中文字体**且**栈首不是衬线**的 font stack 末尾追加:
 
 ```
 "Noto Sans SC", "Source Han Sans SC"
 ```
 
 - 已含雅黑 / 苹方 / 思源 / Noto / 宋体 等中文字体的栈**不追加**,尊重站点选择。
+- **衬线栈(`serif`、Times、Georgia、SimSun/宋体 等)不追加**:否则西文衬线会与黑体中文混排割裂;浏览器自带的衬线 CJK fallback(Windows 上即宋体)已正确覆盖中文。
 - 按用户偏好追加在**栈尾**;注意:含 `sans-serif` 等 generic 的栈,浏览器自己的回退序列(Windows 上中文即雅黑)会优先,末尾字体可能轮不到;无 generic 的栈一定生效。
 - 字体名在 `CJK_FALLBACK_FAMILIES` 中可改。
 
@@ -71,11 +87,19 @@
 
 ## 安装 / 更新
 
-1. Firefox / Chrome 安装 [Violentmonkey](https://violentmonkey.pro/) 扩展。
-2. 安装最新版:打开 [releases 页面](https://github.com/RayySummers/font-enhancement/releases) 下载 `Font Enhancement (Roboto Flex & Segoe UI Variable).user.js`,或直接拖入下方 raw 链接(需先允许 raw.githubusercontent.com):
-   - `https://raw.githubusercontent.com/RayySummers/font-enhancement/main/Font%20Enhancement%20(Roboto%20Flex%20%26%20Segoe%20UI%20Variable).user.js`
-2. 将 `Font Enhancement (Roboto Flex & Segoe UI Variable).user.js` 拖入浏览器窗口,确认安装。
-3. 更新时直接重新拖入同名文件,版本号更高会自动覆盖;建议先删除旧版避免重复替换。
+### 方式 A:Greasy Fork(推荐,自动更新)
+
+1. Firefox / Chrome 安装 [Violentmonkey](https://violentmonkey.pro/) 扩展(兼容 Tampermonkey)。
+2. 打开 [Greasy Fork 脚本主页](https://greasyfork.org/en/scripts/589986-font-enhancement-roboto-flex-segoe-ui-variable),点绿色 **「安装此脚本」**。
+3. Greasy Fork 已通过 webhook 与 GitHub 仓库自动同步——**新版本发布后,Greasys Fork 会自动更新,Violentmonkey 会提示你安装新版本**;也可在脚本设置里开启「自动更新」。
+
+### 方式 B:GitHub(手动)
+
+1. 打开 [releases 页面](https://github.com/RayySummers/font-enhancement/releases),下载最新的 `Font Enhancement (Roboto Flex & Segoe UI Variable).user.js`;或直接用 [raw 直链](https://raw.githubusercontent.com/RayySummers/font-enhancement/main/Font%20Enhancement%20(Roboto%20Flex%20%26%20Segoe%20UI%20Variable).user.js)(需先允许 raw.githubusercontent.com)。
+2. 将文件**拖入浏览器窗口**,确认安装。
+3. 更新时重新拖入同名文件,版本号更高会自动覆盖;建议先删除旧版避免重复替换。
+
+> 两渠道同一份代码(Greasy Fork 由 GitHub 自动同步),任选其一即可,不要同时安装两份。
 
 ## 配置(脚本头部)
 
@@ -136,6 +160,13 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.4 | YouTube 播放器/字幕栈(`YouTube Noto` 开头)支持,字幕字体同步替换 |
 | 1.3.5 | YouTube 栈中 Roboto Flex 改为插到 Roboto 前面(不抢 `YouTube Noto` 优先级) |
 | 1.3.6 | observer 批处理 rAF 改为微任务:动态元素(YouTube 字幕)首帧即用替换后字体,消除闪烁 |
+| 1.3.7 | Greasy Fork 发布:补全 `@license` / `@homepageURL` / `@supportURL` / 双语 `@description` |
+| 1.3.8 | 修复衬线栈被追加黑体 CJK 的问题(`serif` / Times / Georgia / 宋体 等不再追加) |
+
+## 支持 / 反馈
+
+- **Issue / 功能建议**:[GitHub Issues](https://github.com/RayySummers/font-enhancement/issues)
+- **脚本主页**:[Greasy Fork](https://greasyfork.org/en/scripts/589986-font-enhancement-roboto-flex-segoe-ui-variable)(也可在脚本页留言反馈)
 
 ## License
 
