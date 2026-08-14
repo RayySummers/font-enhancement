@@ -25,7 +25,8 @@ let source = fs.readFileSync(SCRIPT_PATH, "utf8");
 const exportLine =
     "globalThis.__fenTest = { ENABLED, parseFontFamilies, normalizeFamily, " +
     "transformRobotoFlex, transformInter, transformSegoe, transformMono, " +
-    "transformCJK, computeTransform, getMonoTransform };";
+    "transformCJK, computeTransform, getMonoTransform, " +
+    "resetSarasaProbe: () => { sarasaAvailable = null; } };";
 
 if (!/globalThis\.__fenTest/.test(source)) {
     source = source.replace(/\}\)\(\);\s*$/, `; ${exportLine}\n})();`);
@@ -112,6 +113,24 @@ check("SF Mono Heavy maps to font-weight 700", () => {
     if (result.weight !== 700) throw new Error(`got weight ${result.weight}`);
 });
 
+check("weight-encoded non-head SF Mono entry does not force element weight", () => {
+    const result = monoResult("ui-monospace, SFMono-Semibold, Menlo");
+    if (!result) throw new Error("expected a transform");
+    if (result.weight !== null) throw new Error(`got weight ${result.weight}`);
+    if (result.family !== 'ui-monospace, "Sarasa Mono SC", SFMono-Semibold, Menlo') {
+        throw new Error(`got: ${result.family}`);
+    }
+});
+
+check("head regular SF Mono keeps weight untouched despite weighted fallback", () => {
+    const result = monoResult("SF Mono, SFMono-Bold, monospace");
+    if (!result) throw new Error("expected a transform");
+    if (result.weight !== null) throw new Error(`got weight ${result.weight}`);
+    if (result.family !== '"Sarasa Mono SC", SF Mono, SFMono-Bold, monospace') {
+        throw new Error(`got: ${result.family}`);
+    }
+});
+
 check("bare SFMono is replaced", () => {
     const result = monoResult("SFMono, monospace");
     if (!result) throw new Error("expected a transform");
@@ -146,7 +165,8 @@ check("disabled flag turns the transform off", () => {
 
 /* --------------------------------------------------- full pipeline */
 
-check("full pipeline: SF Mono + Segoe UI both replaced, no CJK append", () => {
+check("full pipeline: SF Mono + Segoe UI replaced; Noto appended while Sarasa missing", () => {
+    api.resetSarasaProbe();
     const result = api.computeTransform("SF Mono, Segoe UI", 14);
     if (!result) throw new Error("expected a transform");
     if (!result.family.includes('"Sarasa Mono SC"')) {
@@ -155,16 +175,48 @@ check("full pipeline: SF Mono + Segoe UI both replaced, no CJK append", () => {
     if (!result.family.includes('"Segoe UI Variable Text"')) {
         throw new Error(`missing Segoe instance: ${result.family}`);
     }
-    if (result.family.includes("Noto Sans SC")) {
-        throw new Error(`CJK fallback appended despite Sarasa: ${result.family}`);
+    if (!result.family.includes('"Noto Sans SC"')) {
+        throw new Error(`CJK fallback missing while Sarasa is unavailable: ${result.family}`);
     }
 });
 
-check("CJK fallback treats Sarasa as a CJK font", () => {
+check("full pipeline: no Noto append when Sarasa is installed", () => {
+    sandbox.document.fonts = { check: () => true };
+    api.resetSarasaProbe();
+    try {
+        const result = api.computeTransform("SF Mono, Segoe UI", 14);
+        if (!result) throw new Error("expected a transform");
+        if (result.family.includes("Noto Sans SC")) {
+            throw new Error(`CJK fallback appended despite installed Sarasa: ${result.family}`);
+        }
+    } finally {
+        delete sandbox.document.fonts;
+        api.resetSarasaProbe();
+    }
+});
+
+check("CJK fallback: Sarasa-only stack appends fallback while font missing", () => {
+    api.resetSarasaProbe();
     const list = families('"Sarasa Mono SC"');
     const result = api.transformCJK(list);
-    if (result !== null) {
-        throw new Error("expected no CJK append on a Sarasa stack");
+    if (!result) throw new Error("expected append while Sarasa is unavailable");
+    if (!list.join(", ").includes('"Noto Sans SC"')) {
+        throw new Error(`got: ${list.join(", ")}`);
+    }
+});
+
+check("CJK fallback: Sarasa-only stack left alone when installed", () => {
+    sandbox.document.fonts = { check: () => true };
+    api.resetSarasaProbe();
+    try {
+        const list = families('"Sarasa Mono SC"');
+        const result = api.transformCJK(list);
+        if (result !== null) {
+            throw new Error("expected no append when Sarasa is installed");
+        }
+    } finally {
+        delete sandbox.document.fonts;
+        api.resetSarasaProbe();
     }
 });
 

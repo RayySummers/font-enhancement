@@ -92,10 +92,10 @@
 | `SFMono-Semibold` | `"Sarasa Mono SC"` + `font-weight: 600` |
 | `ui-monospace, SFMono-Regular, Menlo` | 栈首不动,`SFMono-Regular` 项被替换 |
 
-- 栈中所有 SF Mono 命中项(`SF Mono` / `SFMono` / `SFMono-Regular` / `SF Mono Semibold` …)都会替换,不限位置;`ui-monospace`、`Consolas` 等其它等宽字体不碰。
+- 栈中**首个** SF Mono 命中项(`SF Mono` / `SFMono` / `SFMono-Regular` / `SF Mono Semibold` …)会被替换,后续 SF Mono 条目保留作普通 fallback;`ui-monospace`、`Consolas` 等其它等宽字体不碰。
 - **这是唯一进入代码区域的变换**:`code` / `pre` / `kbd` / `samp` / `var`、编辑器(CodeMirror / Monaco / Ace)、代码高亮(hljs / prism 等)区域**仅执行此替换**;Roboto / Inter / Segoe / CJK 变换依然不会进入代码区域。图标、数学、SVG、可编辑区域等保持完全跳过(见「排除区域」)。
-- 字号不参与判断(无 Text/Display 分流);字重编码在字体名里(`SFMono-Semibold` → `font-weight: 600`,`SF Mono Heavy` → `700`)。
-- **需要本地安装 Sarasa Mono SC(更纱黑体)**,脚本不会远程加载(该字体不在 Google Fonts);未安装时自动回退到原 SF Mono,无副作用。下载:[be5invis/Sarasa-Gothic Releases](https://github.com/be5invis/Sarasa-Gothic/releases),安装 `sarasa-mono-sc` 的 ttf/ttc。
+- 字号不参与判断(无 Text/Display 分流);字重编码在字体名里(`SFMono-Semibold` → `font-weight: 600`,`SF Mono Heavy` → `700`),且**仅栈首 SF Mono 生效**——非栈首的带字重变体(如 `ui-monospace, SFMono-Semibold`)只替换字体,不会强制整个元素的字重。
+- **需要本地安装 Sarasa Mono SC(更纱黑体)**,脚本不会远程加载(该字体不在 Google Fonts)。脚本会运行时探测其可用性:未安装时自动回退到原 SF Mono,且 SF Mono 栈仍会追加 Noto Sans SC / Source Han Sans SC 兜底(与 1.3.x 一致);已安装时 Sarasa 自身覆盖 CJK,不再追加。下载:[be5invis/Sarasa-Gothic Releases](https://github.com/be5invis/Sarasa-Gothic/releases),安装 `sarasa-mono-sc` 的 ttf/ttc。
 - 原 SF Mono 保留在栈中作 fallback。
 - 开关:`ENABLED.sarasaMono`;关闭后代码区域恢复为完全跳过,行为与 1.3.x 一致。
 
@@ -182,7 +182,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.7 | Greasy Fork 发布:补全 `@license` / `@homepageURL` / `@supportURL` / 双语 `@description` |
 | 1.3.8 | 修复衬线栈被追加黑体 CJK 的问题(`serif` / Times / Georgia / 宋体 等不再追加) |
 | 1.3.9 | 性能优化:SKIP 区节点免入观察队列(防 class 高频切换风暴)、attachShadow 合并到统一微任务批次、合并重复 closest 查询、Google Fonts 非阻塞加载(`media="print"` 技巧,未本地装字体的用户首屏不再被阻塞) |
-| 1.4.0 | 新增 SF Mono → Sarasa Mono SC:唯一进入代码区域的变换(code/pre/编辑器/高亮内仅做等宽替换);排除区拆分为硬跳过与等宽区;Sarasa 加入 CJK 检测;关闭该功能时行为与 1.3.x 完全一致 |
+| 1.4.0 | 新增 SF Mono → Sarasa Mono SC:唯一进入代码区域的变换(code/pre/编辑器/高亮内仅做等宽替换);排除区拆分为硬跳过与等宽区;Sarasa 运行时可用性探测(未安装时保留 CJK 兜底);已替换的代码元素跳过重复 getComputedStyle;关闭该功能时行为与 1.3.x 完全一致 |
 
 ## 支持 / 反馈
 

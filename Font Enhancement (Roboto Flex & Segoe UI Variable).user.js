@@ -428,10 +428,10 @@
        sans CJK glyphs, and the browser's own generic serif fallback
        (SimSun/宋体) already handles Chinese correctly.
        Stacks that already cover CJK (YaHei, PingFang, Noto, Source
-       Han, Sarasa, ...) are left alone — that check also stops the
+       Han, ...) are left alone — that check also stops the
        attribute-observer feedback loop.                                  */
     const CJK_FONT_PATTERN =
-        /(noto sans (sc|cn|cjk|tc|hk|jp|kr)|source han|yahei|pingfang|hiragino|songti|heiti|simsun|simhei|malgun|meiryo|ms (pgothic|gothic)|sans cjk|droid sans fallback|wenquanyi|wqy|sarasa)/i;
+        /(noto sans (sc|cn|cjk|tc|hk|jp|kr)|source han|yahei|pingfang|hiragino|songti|heiti|simsun|simhei|malgun|meiryo|ms (pgothic|gothic)|sans cjk|droid sans fallback|wenquanyi|wqy)/i;
 
     // Head-of-stack serif detection. "^serif" must not match
     // "sans-serif" (it starts with "sans-"), and "times" covers
@@ -439,11 +439,47 @@
     const SERIF_HEAD_PATTERN =
         /^(serif|times|georgia|garamond|palatino|book antiqua|minion|baskerville|caslon|didot|bodoni|simsun|songti|宋体|nsimsun|新宋体|pmingliu|ming|batang)/i;
 
+    // Whether "Sarasa Mono SC" actually resolves in the current
+    // browser (locally installed — it is never loaded remotely).
+    // Probed once at runtime, same pattern as the Segoe Display
+    // check. The mono transform inserts the name even when the font
+    // is missing (the original SF Mono stays as fallback), so the
+    // CJK check must not count an unavailable Sarasa as coverage.
+    let sarasaAvailable = null;
+
+    function sarasaInstalled() {
+        if (sarasaAvailable === null) {
+            try {
+                sarasaAvailable =
+                    document.fonts?.check?.('16px "Sarasa Mono SC"') === true;
+            } catch {
+                /* FontFaceSet unavailable — assume not installed */
+                sarasaAvailable = false;
+            }
+        }
+
+        return sarasaAvailable;
+    }
+
     function transformCJK(families) {
         if (!ENABLED.cjkFallback) return null;
 
-        if (families.some(f => CJK_FONT_PATTERN.test(normalizeFamily(f)))) {
-            return null; // site already covers CJK; also stops feedback loop
+        if (families.some(f => {
+            const norm = normalizeFamily(f);
+
+            if (CJK_FONT_PATTERN.test(norm)) {
+                return true; // site already covers CJK
+            }
+
+            // A Sarasa entry usually comes from the mono transform,
+            // which inserts the name even when the font is NOT
+            // installed locally. It only counts as real CJK coverage
+            // (and stops the fallback append) when the font actually
+            // resolves — otherwise those stacks would silently lose
+            // the Noto Sans SC / Source Han Sans SC fallback.
+            return norm === "sarasa mono sc" && sarasaInstalled();
+        })) {
+            return null; // site covers CJK; also stops feedback loop
         }
 
         const head = normalizeFamily(families[0] || "");
@@ -561,15 +597,17 @@
        SF Mono is Apple's mono face; Sarasa Mono SC (更纱黑体) is the
        local replacement. Unlike the other transforms this one ALSO
        runs inside code areas (the only transform allowed there).
-       Every SF Mono entry in the stack is replaced and the original
-       kept as fallback; a weight encoded in the family name
-       (SFMono-Semibold) rides on font-weight because Sarasa ships
-       static named faces.
+       The first SF Mono entry in the stack is replaced and the
+       original kept as fallback; later SF Mono entries stay as plain
+       fallbacks. A weight encoded in the family name (SFMono-Semibold)
+       rides on font-weight — but only from the head entry — because
+       Sarasa ships static named faces.
 
          SF Mono, monospace            → "Sarasa Mono SC", SF Mono, ...
          SFMono-Regular, Menlo, ...    → "Sarasa Mono SC", SFMono-Regular, ...
          "SF Mono Semibold"            → "Sarasa Mono SC" + w600
-         ui-monospace, SFMono-Regular  → middle entry replaced, head kept */
+         ui-monospace, SFMono-Semibold → middle entry replaced, NO weight
+                                           (weight is taken from the head only) */
     const SF_MONO_PATTERN = /^sf[\s-]*mono(\b|$)/i;
 
     const SF_MONO_WEIGHT_MAP = {
@@ -604,14 +642,19 @@
                 .replace(SF_MONO_PATTERN, "")
                 .replace(/^[\s-]+/, "");
 
-            if (SF_MONO_WEIGHT_MAP[suffix]) {
+            // The element-level weight may only come from the HEAD of
+            // the stack: a weight encoded in a non-head SF Mono entry
+            // (e.g. `ui-monospace, SFMono-Semibold, Menlo`) describes
+            // that fallback only and must not force the head font to
+            // a heavier weight.
+            if (i === 0 && SF_MONO_WEIGHT_MAP[suffix]) {
                 weight = SF_MONO_WEIGHT_MAP[suffix];
             }
 
             const original = families[i];
             families[i] = '"Sarasa Mono SC"';
             families.splice(i + 1, 0, original); // keep original as fallback
-            i++; // skip the inserted fallback
+            break; // later SF Mono entries stay as plain fallbacks
         }
 
         return changed ? { weight } : null;
@@ -719,6 +762,16 @@
         // Editable text is never touched — not even by the mono-only
         // transform (it is the user's own input).
         if (element.isContentEditable) return;
+
+        // Already-replaced code element: the inline !important font
+        // wins over every site rule, so its computed stack is fixed
+        // and the size-independent mono transform can no longer
+        // change anything. Skipping the getComputedStyle call keeps
+        // attribute churn in live editors (Monaco/CodeMirror typing)
+        // cheap on subsequent evaluations.
+        if (monoOnly && element.style.fontFamily.includes('"Sarasa Mono SC"')) {
+            return;
+        }
 
         const style = getComputedStyle(element);
         const stack = style.fontFamily;
