@@ -4,7 +4,7 @@
 [![Greasy Fork](https://img.shields.io/badge/Greasy_Fork-安装脚本-670000.svg)](https://greasyfork.org/en/scripts/589986-font-enhancement-roboto-flex-segoe-ui-variable)
 [![GitHub](https://img.shields.io/badge/GitHub-仓库-181717.svg)](https://github.com/RayySummers/font-enhancement)
 
-一个 Violentmonkey / Tampermonkey 用户脚本:在任意网站上,把常用西文字体替换为显示效果更好的可变字体,并为缺失中文字体支持的网站自动追加思源黑体 fallback。
+一个 Violentmonkey / Tampermonkey 用户脚本:在任意网站上,把常用西文字体替换为显示效果更好的可变字体、把 SF Mono 等宽字体替换为更纱黑体 Sarasa Mono SC(含代码区域),并为缺失中文字体支持的网站自动追加思源黑体 fallback。
 
 - **@namespace** `rayy.font-enhance`
 - **@match** `http://*/*` `https://*/*`
@@ -83,6 +83,22 @@
 - 按用户偏好追加在**栈尾**;注意:含 `sans-serif` 等 generic 的栈,浏览器自己的回退序列(Windows 上中文即雅黑)会优先,末尾字体可能轮不到;无 generic 的栈一定生效。
 - 字体名在 `CJK_FALLBACK_FAMILIES` 中可改。
 
+### 5. SF Mono → Sarasa Mono SC(含代码区域)
+
+| 原字体栈 | 替换结果 |
+|---|---|
+| `SF Mono, monospace` | `"Sarasa Mono SC", SF Mono, monospace` |
+| `SFMono-Regular, Menlo, ...` | `"Sarasa Mono SC", SFMono-Regular, Menlo, ...` |
+| `SFMono-Semibold` | `"Sarasa Mono SC"` + `font-weight: 600` |
+| `ui-monospace, SFMono-Regular, Menlo` | 栈首不动,`SFMono-Regular` 项被替换 |
+
+- 栈中**首个** SF Mono 命中项(`SF Mono` / `SFMono` / `SFMono-Regular` / `SF Mono Semibold` …)会被替换,后续 SF Mono 条目保留作普通 fallback;`ui-monospace`、`Consolas` 等其它等宽字体不碰。
+- **这是唯一进入代码区域的变换**:`code` / `pre` / `kbd` / `samp` / `var`、编辑器(CodeMirror / Monaco / Ace)、代码高亮(hljs / prism 等)区域**仅执行此替换**;Roboto / Inter / Segoe / CJK 变换依然不会进入代码区域。图标、数学、SVG、可编辑区域等保持完全跳过(见「排除区域」)。
+- 字号不参与判断(无 Text/Display 分流);字重编码在字体名里(`SFMono-Semibold` → `font-weight: 600`,`SF Mono Heavy` → `700`),且**仅栈首 SF Mono 生效**——非栈首的带字重变体(如 `ui-monospace, SFMono-Semibold`)只替换字体,不会强制整个元素的字重。
+- **需要本地安装 Sarasa Mono SC(更纱黑体)**,脚本不会远程加载(该字体不在 Google Fonts)。脚本会运行时探测其可用性:未安装时自动回退到原 SF Mono,且 SF Mono 栈仍会追加 Noto Sans SC / Source Han Sans SC 兜底(与 1.3.x 一致);已安装时 Sarasa 自身覆盖 CJK,不再追加。下载:[be5invis/Sarasa-Gothic Releases](https://github.com/be5invis/Sarasa-Gothic/releases),安装 `sarasa-mono-sc` 的 ttf/ttc。
+- 原 SF Mono 保留在栈中作 fallback。
+- 开关:`ENABLED.sarasaMono`;关闭后代码区域恢复为完全跳过,行为与 1.3.x 一致。
+
 ---
 
 ## 安装 / 更新
@@ -108,7 +124,8 @@ const ENABLED = {
     robotoFlex: true,     // Roboto → Roboto Flex
     interDisplay: true,   // Inter → Inter Display (≥24px)
     segoeVariable: true,  // Segoe UI → Segoe UI Variable
-    cjkFallback: true     // 追加 Noto Sans SC / Source Han Sans SC
+    cjkFallback: true,    // 追加 Noto Sans SC / Source Han Sans SC
+    sarasaMono: true      // SF Mono → Sarasa Mono SC(需本地安装,含代码区域)
 };
 
 const SEGOE_DISPLAY_THRESHOLD_PX = 20;   // Segoe Text/Display 分流点
@@ -118,20 +135,21 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 
 ## 排除区域
 
-以下区域**不会被修改**:
+以下区域**不会被 UI 字体变换(Roboto / Inter / Segoe / CJK)修改**:
 
 - 代码:`code` `pre` `kbd` `samp` `var`、`script` `style` `template` `noscript`
-- 编辑器:`.CodeMirror` `.cm-editor` `.monaco-editor` `.ace_editor`
-- 代码高亮:`.highlight` `.hljs` `.prism`
+  - **例外**:开启 `sarasaMono` 后,`code` / `pre` / `kbd` / `samp` / `var` 内的 SF Mono 会被替换为 Sarasa Mono SC,其余字体一律不动(见功能 5)
+- 编辑器:`.CodeMirror` `.cm-editor` `.monaco-editor` `.ace_editor`(同上:仅等宽替换例外)
+- 代码高亮:`.highlight` `.hljs` `.prism`(同上:仅等宽替换例外)
 - 数学:`.katex` `math` `mjx-container` `.MathJax`
 - SVG / 图表:`svg` `canvas` `.recharts-wrapper` `.echarts-for-react` `.highcharts-container` `.plotly` `.vega-embed` `.mermaid`
 - 图标字体:`.material-icons` `.material-symbols-*` `.fa` `.fas` `.far` `.fal` `.fab`
 - 可编辑区域:`contenteditable`
-- **手动排除**:给任意元素加属性 `data-no-roboto-flex` 或 `data-no-segoe-variable`,其子树整体跳过。
+- **手动排除**:给任意元素加属性 `data-no-roboto-flex` 或 `data-no-segoe-variable`,其子树整体跳过(包括 SF Mono 替换)。
 
 ## 工作原理(简述)
 
-1. `document-start` 注入;`DOMContentLoaded` 时用显式栈遍历(剪枝排除区、跟随 open shadow root)找出所有含文本的元素,每个元素只读一次 `getComputedStyle`。
+1. `document-start` 注入;`DOMContentLoaded` 时用显式栈遍历(剪枝硬排除区;开启 SF Mono 替换时代码区域会被遍历但仅执行等宽替换;跟随 open shadow root)找出所有含文本的元素,每个元素只读一次 `getComputedStyle`。
 2. 字体栈字符串 → 转换结果的 `Map` 缓存(FIFO 256 条),同栈同字号只解析一次。
 3. `MutationObserver` 监听 `childList` + `characterData` + `class/style` 变化,**微任务**批处理 + 去重叠(渲染前完成替换,动态元素如 YouTube 字幕首帧即正确字体、无闪烁);观察 `document` 级别,`<body>` 被替换也不失效。
 4. 3s / 8s 各一次幂等延迟重扫,兜底晚渲染页面(SPA / Firefox + ShadyDOM 漏批次场景)。
@@ -144,6 +162,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 - **closed shadow DOM**:无法访问,不覆盖。
 - **`::before` / `::after` 伪元素文本**:不直接处理,跟随宿主元素字体。
 - **Segoe UI Variable** 仅在 Windows 11 存在;Windows 10 上替换后自然 fallback 回 Segoe UI。
+- **Sarasa Mono SC 需本地安装**:脚本不远程加载该字体;未安装时 SF Mono 替换自然回退到原字体。
 
 ## 版本历史
 
@@ -163,6 +182,7 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 | 1.3.7 | Greasy Fork 发布:补全 `@license` / `@homepageURL` / `@supportURL` / 双语 `@description` |
 | 1.3.8 | 修复衬线栈被追加黑体 CJK 的问题(`serif` / Times / Georgia / 宋体 等不再追加) |
 | 1.3.9 | 性能优化:SKIP 区节点免入观察队列(防 class 高频切换风暴)、attachShadow 合并到统一微任务批次、合并重复 closest 查询、Google Fonts 非阻塞加载(`media="print"` 技巧,未本地装字体的用户首屏不再被阻塞) |
+| 1.4.0 | 新增 SF Mono → Sarasa Mono SC:唯一进入代码区域的变换(code/pre/编辑器/高亮内仅做等宽替换);排除区拆分为硬跳过与等宽区;Sarasa 运行时可用性探测(未安装时保留 CJK 兜底);已替换的代码元素跳过重复 getComputedStyle;关闭该功能时行为与 1.3.x 完全一致 |
 
 ## 支持 / 反馈
 
@@ -179,7 +199,6 @@ const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
 # 语法检查
 node --check "Font Enhancement (Roboto Flex & Segoe UI Variable).user.js"
 
-# jsdom 集成测试(覆盖各转换、权重、字号分流、剪枝、动态插入、稳定性)
-npm install jsdom
-node test/vm_tests.js
+# 转换单元测试(覆盖 Roboto / Inter / Segoe / CJK / SF Mono 各转换、权重、缓存)
+node test/transform_tests.js
 ```

@@ -2,9 +2,9 @@
 // @name         Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @name:zh-CN   Font Enhancement (Roboto Flex & Segoe UI Variable)
 // @namespace    rayy.font-enhance
-// @version      1.3.10
-// @description  Replace Roboto / bare sans-serif with Roboto Flex, Inter with Inter Display (>=24px) and Segoe UI with Segoe UI Variable (Windows 11); appends Noto Sans SC / Source Han Sans SC as CJK fallback. Preserves explicitly chosen fonts such as Inter.
-// @description:zh-CN  将 Roboto / 裸 sans-serif 替换为 Roboto Flex、Inter(≥24px)替换为 Inter Display、Segoe UI 替换为 Segoe UI Variable(Windows 11),并为缺少中文字体的网站自动追加 Noto Sans SC / Source Han Sans SC 兜底;尊重站点显式字体选择(如 Inter)。
+// @version      1.4.0
+// @description  Replace Roboto / bare sans-serif with Roboto Flex, Inter with Inter Display (>=24px) and Segoe UI with Segoe UI Variable (Windows 11); replace SF Mono with Sarasa Mono SC (including code areas); appends Noto Sans SC / Source Han Sans SC as CJK fallback. Preserves explicitly chosen fonts such as Inter.
+// @description:zh-CN  将 Roboto / 裸 sans-serif 替换为 Roboto Flex、Inter(≥24px)替换为 Inter Display、Segoe UI 替换为 Segoe UI Variable(Windows 11)、SF Mono 替换为 Sarasa Mono SC(含代码区域),并为缺少中文字体的网站自动追加 Noto Sans SC / Source Han Sans SC 兜底;尊重站点显式字体选择(如 Inter)。
 // @match        http://*/*
 // @match        https://*/*
 // @run-at       document-start
@@ -25,7 +25,8 @@
         robotoFlex: true,
         interDisplay: true,
         segoeVariable: true,
-        cjkFallback: true
+        cjkFallback: true,
+        sarasaMono: true
     };
 
     // Windows type ramp: the Display instance is meant for headings
@@ -43,6 +44,12 @@
     // CJK font of its own — placed BEFORE the generic keyword so the
     // browser reaches it, with the generic as final fallback.
     const CJK_FALLBACK_FAMILIES = ['"Noto Sans SC"', '"Source Han Sans SC"'];
+
+    // Sarasa Mono SC (更纱黑体) replaces SF Mono and is the ONLY
+    // transform that also runs inside code areas. It is not on Google
+    // Fonts, so it is never loaded remotely: it must be installed
+    // locally, and the original SF Mono stays in the stack as the
+    // fallback when Sarasa is missing.
 
     /* =========================================================
        1. Font loading
@@ -106,6 +113,12 @@
 
        Note: with closest(), a bare selector covers the element
        AND its whole subtree, so "X *" variants are redundant.
+
+       SKIP_SELECTOR is the full exclusion list. Code areas are a
+       deliberate exception: with the mono feature enabled they are
+       walked, but ONLY the SF Mono → Sarasa Mono SC transform runs
+       there (MONO_ONLY_SELECTOR). Everything else
+       (HARD_SKIP_SELECTOR) is pruned and never evaluated.
        ========================================================= */
 
     const SKIP_SELECTOR = [
@@ -169,6 +182,83 @@
         // Editable regions (closest() covers the subtree)
         '[contenteditable="true"]'
     ].join(",");
+
+    // Code areas: the ONLY part of SKIP_SELECTOR where a transform
+    // still runs — exclusively the SF Mono → Sarasa Mono SC
+    // replacement. Everything else (icons, SVG, math, editable
+    // regions, manual exclusions, ...) is a HARD skip that no
+    // transform ever touches.
+    const MONO_ONLY_SELECTOR = [
+        // Code
+        "code",
+        "pre",
+        "kbd",
+        "samp",
+        "var",
+
+        // Editors
+        ".CodeMirror",
+        ".cm-editor",
+        ".monaco-editor",
+        ".ace_editor",
+
+        // Syntax highlighting
+        ".highlight",
+        ".hljs",
+        ".prism"
+    ].join(",");
+
+    const HARD_SKIP_SELECTOR = [
+        // Scripts / templates / inert markup
+        "script",
+        "style",
+        "template",
+        "noscript",
+
+        // Math
+        ".katex",
+        "math",
+        "mjx-container",
+        ".MathJax",
+
+        // SVG / canvas / charts
+        "svg",
+        "canvas",
+        ".recharts-wrapper",
+        ".echarts-for-react",
+        ".highcharts-container",
+        ".plotly",
+        ".vega-embed",
+
+        // Diagrams
+        ".mermaid",
+
+        // Icons
+        ".material-icons",
+        ".material-symbols-outlined",
+        ".material-symbols-rounded",
+        ".material-symbols-sharp",
+        ".fa",
+        ".fas",
+        ".far",
+        ".fal",
+        ".fab",
+
+        // Manual exclusion
+        "[data-no-roboto-flex]",
+        "[data-no-segoe-variable]",
+
+        // Editable regions (closest() covers the subtree)
+        '[contenteditable="true"]'
+    ].join(",");
+
+    // Subtree pruning: with the mono feature enabled, code areas are
+    // walked (for the mono-only transform) and only HARD skips are
+    // pruned. With it disabled, pruning covers the whole skip list
+    // exactly as before.
+    const PRUNE_SELECTOR = ENABLED.sarasaMono
+        ? HARD_SKIP_SELECTOR
+        : SKIP_SELECTOR;
 
 
     const ICON_FONT_PATTERN =
@@ -349,11 +439,47 @@
     const SERIF_HEAD_PATTERN =
         /^(serif|times|georgia|garamond|palatino|book antiqua|minion|baskerville|caslon|didot|bodoni|simsun|songti|宋体|nsimsun|新宋体|pmingliu|ming|batang)/i;
 
+    // Whether "Sarasa Mono SC" actually resolves in the current
+    // browser (locally installed — it is never loaded remotely).
+    // Probed once at runtime, same pattern as the Segoe Display
+    // check. The mono transform inserts the name even when the font
+    // is missing (the original SF Mono stays as fallback), so the
+    // CJK check must not count an unavailable Sarasa as coverage.
+    let sarasaAvailable = null;
+
+    function sarasaInstalled() {
+        if (sarasaAvailable === null) {
+            try {
+                sarasaAvailable =
+                    document.fonts?.check?.('16px "Sarasa Mono SC"') === true;
+            } catch {
+                /* FontFaceSet unavailable — assume not installed */
+                sarasaAvailable = false;
+            }
+        }
+
+        return sarasaAvailable;
+    }
+
     function transformCJK(families) {
         if (!ENABLED.cjkFallback) return null;
 
-        if (families.some(f => CJK_FONT_PATTERN.test(normalizeFamily(f)))) {
-            return null; // site already covers CJK; also stops feedback loop
+        if (families.some(f => {
+            const norm = normalizeFamily(f);
+
+            if (CJK_FONT_PATTERN.test(norm)) {
+                return true; // site already covers CJK
+            }
+
+            // A Sarasa entry usually comes from the mono transform,
+            // which inserts the name even when the font is NOT
+            // installed locally. It only counts as real CJK coverage
+            // (and stops the fallback append) when the font actually
+            // resolves — otherwise those stacks would silently lose
+            // the Noto Sans SC / Source Han Sans SC fallback.
+            return norm === "sarasa mono sc" && sarasaInstalled();
+        })) {
+            return null; // site covers CJK; also stops feedback loop
         }
 
         const head = normalizeFamily(families[0] || "");
@@ -467,7 +593,81 @@
     }
 
 
-    const TRANSFORMS = [transformRobotoFlex, transformInter, transformSegoe, transformCJK];
+    /* ----- SF Mono → Sarasa Mono SC -----
+       SF Mono is Apple's mono face; Sarasa Mono SC (更纱黑体) is the
+       local replacement. Unlike the other transforms this one ALSO
+       runs inside code areas (the only transform allowed there).
+       The first SF Mono entry in the stack is replaced and the
+       original kept as fallback; later SF Mono entries stay as plain
+       fallbacks. A weight encoded in the family name (SFMono-Semibold)
+       rides on font-weight — but only from the head entry — because
+       Sarasa ships static named faces.
+
+         SF Mono, monospace            → "Sarasa Mono SC", SF Mono, ...
+         SFMono-Regular, Menlo, ...    → "Sarasa Mono SC", SFMono-Regular, ...
+         "SF Mono Semibold"            → "Sarasa Mono SC" + w600
+         ui-monospace, SFMono-Semibold → middle entry replaced, NO weight
+                                           (weight is taken from the head only) */
+    const SF_MONO_PATTERN = /^sf[\s-]*mono(\b|$)/i;
+
+    const SF_MONO_WEIGHT_MAP = {
+        extralight: 200,
+        light: 300,
+        medium: 500,
+        semibold: 600,
+        bold: 700,
+        heavy: 700
+    };
+
+    function transformMono(families) {
+        if (!ENABLED.sarasaMono) return null;
+
+        // Already replaced (or site already uses it): no-op.
+        // Also stops the attribute-observer feedback loop.
+        if (families.some(f => normalizeFamily(f) === "sarasa mono sc")) {
+            return null;
+        }
+
+        let changed = false;
+        let weight = null;
+
+        for (let i = 0; i < families.length; i++) {
+            const norm = normalizeFamily(families[i]);
+
+            if (!SF_MONO_PATTERN.test(norm)) continue;
+
+            changed = true;
+
+            const suffix = norm
+                .replace(SF_MONO_PATTERN, "")
+                .replace(/^[\s-]+/, "");
+
+            // The element-level weight may only come from the HEAD of
+            // the stack: a weight encoded in a non-head SF Mono entry
+            // (e.g. `ui-monospace, SFMono-Semibold, Menlo`) describes
+            // that fallback only and must not force the head font to
+            // a heavier weight.
+            if (i === 0 && SF_MONO_WEIGHT_MAP[suffix]) {
+                weight = SF_MONO_WEIGHT_MAP[suffix];
+            }
+
+            const original = families[i];
+            families[i] = '"Sarasa Mono SC"';
+            families.splice(i + 1, 0, original); // keep original as fallback
+            break; // later SF Mono entries stay as plain fallbacks
+        }
+
+        return changed ? { weight } : null;
+    }
+
+
+    const TRANSFORMS = [
+        transformRobotoFlex,
+        transformInter,
+        transformSegoe,
+        transformMono,
+        transformCJK
+    ];
 
 
     /* =========================================================
@@ -476,17 +676,18 @@
        getComputedStyle is called once per element. The expensive
        parse+transform is memoized per font-stack string (bounded),
        so repeated evaluations of the same stack are cheap.
+       Elements inside code areas run ONLY the mono transform.
        ========================================================= */
 
     const CACHE_MAX = 256;
     const transformCache = new Map();
 
-    function computeTransform(stack, sizePx) {
+    function computeTransform(stack, sizePx, transforms = TRANSFORMS) {
         const families = parseFontFamilies(stack);
         let changed = false;
         let weight = null;
 
-        for (const transform of TRANSFORMS) {
+        for (const transform of transforms) {
             const result = transform(families, sizePx);
 
             if (result) {
@@ -517,16 +718,60 @@
     }
 
 
+    // Mono-zone cache: code areas run ONLY the SF Mono → Sarasa
+    // transform, whose result depends on the stack alone (no Text vs
+    // Display size split), so a separate bounded cache keeps the
+    // full-pipeline cache untouched.
+    const monoTransformCache = new Map();
+
+    function getMonoTransform(stack) {
+        let result = monoTransformCache.get(stack);
+
+        if (result === undefined) {
+            result = computeTransform(stack, 0, [transformMono]);
+            monoTransformCache.set(stack, result);
+
+            if (monoTransformCache.size > CACHE_MAX) {
+                monoTransformCache.delete(monoTransformCache.keys().next().value);
+            }
+        }
+
+        return result;
+    }
+
+
     function evaluateElement(element) {
         if (!(element instanceof Element)) return;
 
         // One closest() covers both the exclusion list and editable
         // regions ([contenteditable="true"] is part of SKIP_SELECTOR).
-        if (element.closest(SKIP_SELECTOR)) return;
+        // Code areas are the deliberate exception: with the mono
+        // feature enabled, ONLY the SF Mono → Sarasa Mono SC transform
+        // runs there (monoOnly); the full pipeline never does.
+        let monoOnly = false;
+
+        if (element.closest(SKIP_SELECTOR)) {
+            if (!ENABLED.sarasaMono) return;
+
+            monoOnly = !!element.closest(MONO_ONLY_SELECTOR);
+            if (!monoOnly) return;
+        }
 
         // Computed property: also catches contenteditable="inherit"
         // / "plaintext-only" forms that the attribute selector misses.
+        // Editable text is never touched — not even by the mono-only
+        // transform (it is the user's own input).
         if (element.isContentEditable) return;
+
+        // Already-replaced code element: the inline !important font
+        // wins over every site rule, so its computed stack is fixed
+        // and the size-independent mono transform can no longer
+        // change anything. Skipping the getComputedStyle call keeps
+        // attribute churn in live editors (Monaco/CodeMirror typing)
+        // cheap on subsequent evaluations.
+        if (monoOnly && element.style.fontFamily.includes('"Sarasa Mono SC"')) {
+            return;
+        }
 
         const style = getComputedStyle(element);
         const stack = style.fontFamily;
@@ -534,7 +779,9 @@
         if (!stack || ICON_FONT_PATTERN.test(stack)) return;
 
         // parseFloat: "28px" → 28 (a raw string would compare as NaN)
-        const result = getTransform(stack, parseFloat(style.fontSize) || 0);
+        const result = monoOnly
+            ? getMonoTransform(stack)
+            : getTransform(stack, parseFloat(style.fontSize) || 0);
 
         if (!result) return;
 
@@ -574,8 +821,9 @@
 
 
     /* =========================================================
-       6. Scan: explicit stack, prunes excluded subtrees,
-          follows open shadow roots
+       6. Scan: explicit stack, prunes hard-excluded subtrees,
+          walks code areas for the mono-only transform, follows
+          open shadow roots
        ========================================================= */
 
     function processRoot(root) {
@@ -602,7 +850,9 @@
             }
 
             if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.closest(SKIP_SELECTOR)) continue; // prune subtree
+                // Mono feature on: code areas are walked and evaluated
+                // mono-only; off: the whole skip list is pruned.
+                if (node.closest(PRUNE_SELECTOR)) continue; // prune subtree
 
                 if (node.shadowRoot) {
                     ensureShadowObserved(node.shadowRoot);
@@ -651,13 +901,15 @@
     function scheduleProcess(root) {
         if (!root) return;
 
-        // Fast path: drop roots inside excluded areas before they
+        // Fast path: drop roots inside hard-excluded areas before they
         // enter the queue. Sites that churn class/style attributes
-        // on icons/buttons/code blocks would otherwise rescan those
-        // subtrees on every attribute mutation.
+        // on icons/buttons would otherwise rescan those subtrees on
+        // every attribute mutation. Code areas are kept in the queue
+        // while the mono replacement is enabled — the mono-only
+        // transform still applies there.
         if (
             root.nodeType === Node.ELEMENT_NODE &&
-            root.closest(SKIP_SELECTOR)
+            root.closest(PRUNE_SELECTOR)
         ) {
             return;
         }
@@ -665,7 +917,7 @@
         if (
             root.nodeType === Node.TEXT_NODE &&
             root.parentElement &&
-            root.parentElement.closest(SKIP_SELECTOR)
+            root.parentElement.closest(PRUNE_SELECTOR)
         ) {
             return;
         }
@@ -814,7 +1066,8 @@
 
     function injectPlaceholderRule() {
         if (!ENABLED.segoeVariable && !ENABLED.robotoFlex &&
-            !ENABLED.interDisplay && !ENABLED.cjkFallback) {
+            !ENABLED.interDisplay && !ENABLED.cjkFallback &&
+            !ENABLED.sarasaMono) {
             return;
         }
 
