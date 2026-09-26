@@ -202,3 +202,7 @@ node --check "Font Enhancement (Roboto Flex & Segoe UI Variable).user.js"
 # 转换单元测试(覆盖 Roboto / Inter / Segoe / CJK / SF Mono 各转换、权重、缓存)
 node test/transform_tests.js
 ```
+
+## 代码审查
+
+提交 PR 后会自动触发 [PR-Agent](https://github.com/The-PR-Agent/pr-agent) 生成变更摘要与审查意见，由 GitHub Actions 运行，模型经 OpenCode Go 调用。
